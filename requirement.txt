@@ -1,0 +1,4 @@
+datasets
+soundfile
+tqdm
+huggingface_hub

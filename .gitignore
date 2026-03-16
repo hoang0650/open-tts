@@ -1,0 +1,8 @@
+__pycache__/
+my_dataset/
+training_data/
+piper/
+*.onnx
+*.onnx.json
+*.ckpt
+*.wav
