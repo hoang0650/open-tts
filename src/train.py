@@ -92,13 +92,34 @@ class TTSDataCollator:
 # 6. Huấn luyện
 training_args = TrainingArguments(
     output_dir="./mms-tts-vie-finetuned",
-    per_device_train_batch_size=2,
-    gradient_accumulation_steps=16,
+    
+    # --- TỐI ƯU HÓA TỐC ĐỘ & VRAM ---
+    per_device_train_batch_size=12,      # Bạn có thể thử tăng lên 12 nếu VRAM vẫn dư
+    gradient_accumulation_steps=4,      # Tổng Batch Size vẫn là 32 (8x4), giúp cập nhật trọng số nhanh hơn
+    
+    # Sử dụng Bfloat16 (ưu việt hơn FP16 trên RTX 40 series) giúp train ổn định và nhanh hơn
+    bf16=torch.cuda.is_available(),     
+    fp16=False,                         # Tắt FP16 nếu đã dùng BF16
+    
+    # Optimizer được "fused" (nén) giúp tính toán trên CUDA nhanh hơn đáng kể
+    optim="adamw_torch_fused",          
+    
+    # --- TỐI ƯU HÓA NẠP DỮ LIỆU ---
+    dataloader_num_workers=4,           # Sử dụng 4 luồng CPU để nạp dữ liệu (tùy số nhân CPU của bạn)
+    group_by_length=True,               # Gom các câu độ dài gần nhau để giảm lượng padding dư thừa
+    
+    # --- CẤU HÌNH HUẤN LUYỆN ---
     learning_rate=2e-5,
     max_steps=10000,
-    fp16=torch.cuda.is_available(),
+    logging_steps=50,                   # Theo dõi loss thường xuyên hơn
+    save_steps=1000,                    # Giảm tần suất lưu để tránh tốn thời gian đẩy lên Hub liên tục
+    warmup_steps=500,                   # Giúp model làm quen với dữ liệu, tránh nhảy vọt loss lúc đầu
+    
+    # --- HUGGING FACE HUB ---
     push_to_hub=True,
     hub_model_id="phgrouptechs/tts-vie-infore",
+    hub_token=hf_token,
+    hub_strategy="every_save",
     report_to="none"
 )
 
