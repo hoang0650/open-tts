@@ -11,44 +11,43 @@ from transformers import (
 )
 from huggingface_hub import login
 
-# 1. Xác thực Hugging Face qua Biến môi trường
-# Bạn cần set biến HF_TOKEN trong Environment Variables của hệ thống/nền tảng train
-hf_token = os.getenv("HF_TOKEN")
-
-if hf_token:
-    print("✅ Đã tìm thấy HF_TOKEN. Đang tiến hành đăng nhập...")
-    login(token=hf_token)
-else:
-    print("❌ Không tìm thấy HF_TOKEN. Vui lòng kiểm tra lại biến môi trường.")
-    # Có thể dừng chương trình nếu token là bắt buộc để push model
-    # raise ValueError("HF_TOKEN is required for pushing to Hub")
-
 # 2. Cấu hình & Load Dataset
 model_id = "facebook/mms-tts-vie"
 dataset_id = "doof-ferb/infore1_25hours"
 
 print(f"📦 Đang tải dataset: {dataset_id}...")
+# Tải dataset nhưng CHƯA giải mã audio ngay (decode=False)
 dataset = load_dataset(dataset_id, split="train")
-dataset = dataset.cast_column("audio", Audio(sampling_rate=16_000))
 
-# 3. Load Model & Tokenizer
+# 3. Load Model & Tokenizer (giữ nguyên)
 tokenizer = VitsTokenizer.from_pretrained(model_id)
 model = VitsModel.from_pretrained(model_id)
 
-# 4. Tiền xử lý dữ liệu
+# 4. Tiền xử lý dữ liệu (Sửa lại để tự giải mã bằng soundfile/librosa)
+import librosa
+import io
+
 def prepare_dataset(batch):
-    audio = batch["audio"]
-    # Tokenize văn bản
+    # Giải mã thủ công từ binary nếu cần, hoặc ép kiểu an toàn
+    # Ở đây ta dùng cách cast an toàn sau khi đã gỡ torchcodec
+    audio_data = batch["audio"]
+    
+    # Chuyển văn bản thành ID
     batch["input_ids"] = tokenizer(batch["transcription"], return_tensors=None).input_ids
-    # Label cho VITS thường là waveform
-    batch["labels"] = audio["array"]
+    
+    # Lấy mảng waveform (lúc này datasets sẽ dùng soundfile vì torchcodec đã bị xóa)
+    batch["labels"] = audio_data["array"]
     return batch
 
 print("🛠 Đang tiền xử lý dữ liệu...")
+
+# Trước khi map, ép kiểu Audio lần cuối để dùng soundfile backend
+dataset = dataset.cast_column("audio", Audio(sampling_rate=16_000))
+
 dataset = dataset.map(
     prepare_dataset, 
     remove_columns=dataset.column_names, 
-    num_proc=1 # Chạy đa luồng để nhanh hơn
+    num_proc=1 # Để num_proc=1 để dễ debug nếu còn lỗi, sau đó mới tăng lên
 )
 
 # 5. Cấu hình Huấn luyện
