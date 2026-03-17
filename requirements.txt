@@ -10,6 +10,7 @@ librosa
 scipy
 soundfile
 phonemizer
+torchcodec
 
 # --- API & Deployment ---
 fastapi
@@ -19,3 +20,6 @@ python-multipart
 # --- Utilities ---
 numpy
 tensorboard
+onnx
+onnxruntime
+optimum[exporters]
