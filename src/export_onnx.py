@@ -1,48 +1,28 @@
+from huggingface_hub import HfApi
 import os
-import torch
-from transformers import VitsTokenizer, VitsModel
-from optimum.exporters.onnx import export_models
-from optimum.exporters.tasks import TasksManager
-from pathlib import Path
 
-# Cấu hình đường dẫn
-fine_tuned_model_id = "phgrouptechs/tts-vie-infore"
-base_mms_id = "facebook/mms-tts-vie" 
-save_dir = Path("./mms-tts-vie-onnx")
-save_dir.mkdir(parents=True, exist_ok=True)
+# Cấu hình thông tin
+repo_id = "phgrouptechs/tts-vie-infore"  # Repo của bạn
+local_folder = "/workspace/open-tts/mms-tts-vie-onnx"
+token = os.getenv("HF_TOKEN") # Đảm bảo bạn đã export HF_TOKEN hoặc dán trực tiếp token vào đây
 
-print("🚀 Đang khởi tạo quá trình chuyển đổi...")
+api = HfApi()
+
+print(f"🚀 Đang chuẩn bị tải lên repo: {repo_id}...")
 
 try:
-    # 1. Load Tokenizer & Model
-    tokenizer = VitsTokenizer.from_pretrained(base_mms_id)
-    model = VitsModel.from_pretrained(fine_tuned_model_id)
-
-    # 2. Lấy cấu hình ONNX với task chính xác: 'text-to-audio'
-    print("⚙️ Đang cấu hình Backend ONNX cho task 'text-to-audio'...")
-    onnx_config_constructor = TasksManager.get_exporter_config_constructor(
-        model_type="vits",
-        exporter="onnx",
-        task="text-to-audio", # Đã sửa từ text-to-speech
-        library_name="transformers"
+    # Tải toàn bộ thư mục lên một thư mục con tên là 'onnx' trên repo
+    # Hoặc bạn có thể để path_in_repo="" nếu muốn đè thẳng vào root
+    api.upload_folder(
+        folder_path=local_folder,
+        repo_id=repo_id,
+        path_in_repo="onnx", 
+        token=token,
+        commit_message="Add ONNX version for faster inference"
     )
-    onnx_config = onnx_config_constructor(model.config)
-
-    # 3. Thực hiện export
-    print("🔄 Đang ghi file ONNX (Vui lòng đợi trong giây lát)...")
-    export_models(
-        models_and_onnx_configs={
-            "model": (model, onnx_config)
-        },
-        output_dir=save_dir,
-    )
-
-    # 4. Lưu tokenizer
-    tokenizer.save_pretrained(save_dir)
-
-    print(f"\n✅ THÀNH CÔNG RỰC RỠ!")
-    print(f"📍 Model ONNX lưu tại: {save_dir.absolute()}")
-    print(f"📦 Danh sách file: {os.listdir(save_dir)}")
+    
+    print(f"\n✅ ĐÃ PUSH THÀNH CÔNG!")
+    print(f"🔗 Xem model tại: https://huggingface.co/{repo_id}/tree/main/onnx")
 
 except Exception as e:
-    print(f"\n❌ Vẫn còn lỗi: {e}")
+    print(f"❌ Lỗi khi push: {e}")
