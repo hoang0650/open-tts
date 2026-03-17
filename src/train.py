@@ -48,7 +48,7 @@ print("🛠 Đang tiền xử lý dữ liệu...")
 dataset = dataset.map(
     prepare_dataset, 
     remove_columns=dataset.column_names, 
-    num_proc=4 # Chạy đa luồng để nhanh hơn
+    num_proc=1 # Chạy đa luồng để nhanh hơn
 )
 
 # 5. Cấu hình Huấn luyện
