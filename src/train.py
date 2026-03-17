@@ -93,27 +93,29 @@ class TTSDataCollator:
 training_args = TrainingArguments(
     output_dir="./mms-tts-vie-finetuned",
     
-    # --- TỐI ƯU HÓA TỐC ĐỘ & VRAM ---
-    per_device_train_batch_size=12,      # Bạn có thể thử tăng lên 12 nếu VRAM vẫn dư
-    gradient_accumulation_steps=4,      # Tổng Batch Size vẫn là 32 (8x4), giúp cập nhật trọng số nhanh hơn
+    # --- TỐI ƯU CHO RTX 4090 (24GB VRAM) ---
+    per_device_train_batch_size=12,      
+    gradient_accumulation_steps=4,      
     
-    # Sử dụng Bfloat16 (ưu việt hơn FP16 trên RTX 40 series) giúp train ổn định và nhanh hơn
+    # Sử dụng Bfloat16 cho kiến trúc Ada Lovelace
     bf16=torch.cuda.is_available(),     
-    fp16=False,                         # Tắt FP16 nếu đã dùng BF16
     
-    # Optimizer được "fused" (nén) giúp tính toán trên CUDA nhanh hơn đáng kể
+    # Optimizer được tối ưu hóa cho GPU
     optim="adamw_torch_fused",          
     
-    # --- TỐI ƯU HÓA NẠP DỮ LIỆU ---
-    dataloader_num_workers=4,           # Sử dụng 4 luồng CPU để nạp dữ liệu (tùy số nhân CPU của bạn)
-    group_by_length=True,               # Gom các câu độ dài gần nhau để giảm lượng padding dư thừa
+    # Tăng tốc độ nạp dữ liệu (Data Loading)
+    dataloader_num_workers=4,           
     
-    # --- CẤU HÌNH HUẤN LUYỆN ---
+    # --- THAY THẾ group_by_length ---
+    # Nếu group_by_length lỗi, ta bỏ qua nó để ưu tiên chạy ổn định
+    # group_by_length=True, <--- Bỏ dòng này
+    
+    # --- CÁC THAM SỐ CƠ BẢN ---
     learning_rate=2e-5,
     max_steps=10000,
-    logging_steps=50,                   # Theo dõi loss thường xuyên hơn
-    save_steps=1000,                    # Giảm tần suất lưu để tránh tốn thời gian đẩy lên Hub liên tục
-    warmup_steps=500,                   # Giúp model làm quen với dữ liệu, tránh nhảy vọt loss lúc đầu
+    logging_steps=50,
+    save_steps=1000,
+    warmup_steps=500,
     
     # --- HUGGING FACE HUB ---
     push_to_hub=True,
