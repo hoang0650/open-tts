@@ -1,0 +1,21 @@
+# --- Core ML & Transformer ---
+torch
+transformers
+datasets
+accelerate
+huggingface-hub
+
+# --- Audio Processing ---
+librosa
+scipy
+soundfile
+phonemizer
+
+# --- API & Deployment ---
+fastapi
+uvicorn
+python-multipart
+
+# --- Utilities ---
+numpy
+tensorboard
