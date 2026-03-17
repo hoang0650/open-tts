@@ -92,24 +92,11 @@ class TTSDataCollator:
 # 6. Huấn luyện
 training_args = TrainingArguments(
     output_dir="./mms-tts-vie-finetuned",
-    
-    # --- CẤU HÌNH TỐI ƯU LẠI ---
-    per_device_train_batch_size=6,      # Giảm từ 12 xuống 6 để tránh OOM
-    gradient_accumulation_steps=4,      # Tăng lên 4 để tổng batch vẫn là 24
-    
-    # Giải phóng VRAM ngay sau mỗi bước tính toán
-    gradient_checkpointing=True,        
-    
-    # Các tối ưu hóa phần cứng
-    bf16=True,                          
-    optim="adamw_torch_fused",          
-    dataloader_num_workers=4,           
-    
-    # --- TỐC ĐỘ ---
+    per_device_train_batch_size=2,
+    gradient_accumulation_steps=16,
     learning_rate=2e-5,
     max_steps=10000,
-    logging_steps=10,
-    save_steps=1000,
+    fp16=torch.cuda.is_available(),
     push_to_hub=True,
     hub_model_id="phgrouptechs/tts-vie-infore",
     report_to="none"
