@@ -96,15 +96,7 @@ training_args = TrainingArguments(
     gradient_accumulation_steps=4,
     learning_rate=2e-5,
     max_steps=10000,
-    # --- TỐI ƯU HÓA PHẦN CỨNG RTX 4090 ---
-    bf16=True,                          
-    optim="adamw_torch_fused",          # Giờ sẽ chạy ổn định sau khi đã ép kiểu model
-    gradient_checkpointing=True,        # Tiết kiệm VRAM cực lớn
-    dataloader_num_workers=4,           
-    
-    # --- CẤU HÌNH KHÁC ---
-    logging_steps=10,
-    save_steps=1000,
+    fp16=torch.cuda.is_available(),
     push_to_hub=True,
     hub_model_id="phgrouptechs/tts-vie-infore",
     report_to="none"
