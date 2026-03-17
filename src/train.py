@@ -63,6 +63,40 @@ dataset = dataset.map(
 )
 
 # 5. Cấu hình Huấn luyện
+class TTSDataCollator:
+    def __init__(self, tokenizer):
+        self.tokenizer = tokenizer
+
+    def __call__(self, features):
+        # 1. Chuyển đổi dữ liệu sang Tensor
+        input_ids = [torch.tensor(f["input_ids"], dtype=torch.long) for f in features]
+        labels = [torch.tensor(f["labels"], dtype=torch.float) for f in features]
+
+        # Lấy token dùng để đệm (padding) của Tokenizer
+        pad_id = self.tokenizer.pad_token_id if self.tokenizer.pad_token_id is not None else 0
+
+        # 2. Padding Text (input_ids)
+        input_ids_padded = torch.nn.utils.rnn.pad_sequence(
+            input_ids, batch_first=True, padding_value=pad_id
+        )
+
+        # 3. Padding Audio (labels) bằng giá trị 0.0 (khoảng lặng)
+        labels_padded = torch.nn.utils.rnn.pad_sequence(
+            labels, batch_first=True, padding_value=0.0
+        )
+
+        # 4. Tạo Attention Mask để model bỏ qua các giá trị padding của Text
+        attention_mask = (input_ids_padded != pad_id).long()
+
+        return {
+            "input_ids": input_ids_padded,
+            "attention_mask": attention_mask,
+            "labels": labels_padded
+        }
+
+# Khởi tạo Collator
+data_collator = TTSDataCollator(tokenizer)
+
 training_args = TrainingArguments(
     output_dir="./mms-tts-vie-finetuned",
     per_device_train_batch_size=2,
@@ -86,6 +120,7 @@ trainer = Trainer(
     model=model,
     args=training_args,
     train_dataset=dataset,
+    data_collator=data_collator,
 )
 
 # 7. Chạy Huấn luyện
