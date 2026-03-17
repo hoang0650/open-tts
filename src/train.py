@@ -92,8 +92,8 @@ class TTSDataCollator:
 # 6. Huấn luyện
 training_args = TrainingArguments(
     output_dir="./mms-tts-vie-finetuned",
-    per_device_train_batch_size=8,
-    gradient_accumulation_steps=4,
+    per_device_train_batch_size=2,
+    gradient_accumulation_steps=16,
     learning_rate=2e-5,
     max_steps=10000,
     fp16=torch.cuda.is_available(),
