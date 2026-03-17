@@ -1,4 +1,5 @@
 import os
+os.environ["HF_DATASETS_OFFLINE"] = "0"
 import torch
 from datasets import load_dataset, Audio
 from transformers import (
@@ -53,8 +54,8 @@ dataset = dataset.map(
 # 5. Cấu hình Huấn luyện
 training_args = TrainingArguments(
     output_dir="./mms-tts-vie-finetuned",
-    per_device_train_batch_size=4,
-    gradient_accumulation_steps=8,
+    per_device_train_batch_size=2,
+    gradient_accumulation_steps=16,
     learning_rate=2e-5,
     weight_decay=0.01,
     max_steps=10000, 
