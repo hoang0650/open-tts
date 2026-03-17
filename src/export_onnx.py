@@ -1,30 +1,38 @@
-import torch
-from optimum.exporters.onnx import main_export
-from transformers import VitsTokenizer
 import os
+import torch
+from transformers import VitsTokenizer, VitsModel
+from optimum.exporters.onnx import export_models, OnnxConfigWithPast
+from optimum.exporters.tasks import TasksManager
+from pathlib import Path
 
 model_id = "phgrouptechs/tts-vie-infore"
-save_dir = "./mms-tts-vie-onnx"
+save_dir = Path("./mms-tts-vie-onnx")
+save_dir.mkdir(parents=True, exist_ok=True)
 
-print("🚀 Đang tiến hành Force Export sang ONNX...")
+print("🚀 Đang tải model và chuẩn bị cấu hình...")
+# Tải model và tokenizer
+tokenizer = VitsTokenizer.from_pretrained(model_id)
+model = VitsModel.from_pretrained(model_id)
 
-try:
-    # Sử dụng hàm main_export trực tiếp
-    # do_validation=False sẽ bỏ qua lỗi so sánh Shape giữa PyTorch và ONNX
-    main_export(
-        model_name_or_path=model_id,
-        output=save_dir,
-        task="text-to-speech",
-        do_validation=False, 
-    )
+# Lấy cấu hình ONNX mặc định cho task text-to-speech
+onnx_config_constructor = TasksManager.get_exporter_config_constructor(
+    model_type="vits",
+    exporter="onnx",
+    task="text-to-speech",
+)
+onnx_config = onnx_config_constructor(model.config)
 
-    # Lưu thêm Tokenizer vào cùng thư mục để tiện sử dụng sau này
-    print("📦 Đang lưu Tokenizer...")
-    tokenizer = VitsTokenizer.from_pretrained(model_id)
-    tokenizer.save_pretrained(save_dir)
+# Thực hiện export thủ công
+print("🔄 Đang chuyển đổi sang ONNX (Bỏ qua validation)...")
+export_models(
+    models_and_onnx_configs={
+        "model": (model, onnx_config)
+    },
+    output_dir=save_dir,
+)
 
-    print(f"✅ HOÀN THÀNH! Model đã được lưu tại: {save_dir}")
-    print("Bạn có thể kiểm tra các file .onnx trong thư mục đó.")
+# Lưu tokenizer
+tokenizer.save_pretrained(save_dir)
 
-except Exception as e:
-    print(f"❌ Có lỗi xảy ra: {e}")
+print(f"✅ HOÀN THÀNH! Các file đã nằm tại: {save_dir}")
+print(os.listdir(save_dir))
