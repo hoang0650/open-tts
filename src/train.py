@@ -1,53 +1,65 @@
 import os
-os.environ["HF_DATASETS_OFFLINE"] = "0"
+import io
 import torch
+import librosa
+import soundfile as sf
 from datasets import load_dataset, Audio
 from transformers import (
     VitsModel, 
     VitsTokenizer, 
     TrainingArguments, 
-    Trainer,
-    DataCollatorWithPadding
+    Trainer
 )
 from huggingface_hub import login
+
+# 1. Xác thực Hugging Face (Sửa lại đoạn biến môi trường bị thiếu)
+hf_token = os.getenv("HF_TOKEN")
+if hf_token:
+    print("✅ Đã tìm thấy HF_TOKEN. Đang tiến hành đăng nhập...")
+    login(token=hf_token)
+else:
+    print("❌ Không tìm thấy HF_TOKEN. Vui lòng kiểm tra lại biến môi trường.")
 
 # 2. Cấu hình & Load Dataset
 model_id = "facebook/mms-tts-vie"
 dataset_id = "doof-ferb/infore1_25hours"
 
 print(f"📦 Đang tải dataset: {dataset_id}...")
-# Tải dataset nhưng CHƯA giải mã audio ngay (decode=False)
 dataset = load_dataset(dataset_id, split="train")
 
-# 3. Load Model & Tokenizer (giữ nguyên)
+# QUAN TRỌNG: Tắt tính năng tự động giải mã (decode=False)
+# Thay vì cố gắng giải mã, thư viện chỉ trả về raw bytes của file audio
+dataset = dataset.cast_column("audio", Audio(decode=False))
+
+# 3. Load Model & Tokenizer
 tokenizer = VitsTokenizer.from_pretrained(model_id)
 model = VitsModel.from_pretrained(model_id)
 
-# 4. Tiền xử lý dữ liệu (Sửa lại để tự giải mã bằng soundfile/librosa)
-import librosa
-import io
-
+# 4. Tiền xử lý dữ liệu (Tự giải mã thủ công cực kỳ an toàn)
 def prepare_dataset(batch):
-    # Giải mã thủ công từ binary nếu cần, hoặc ép kiểu an toàn
-    # Ở đây ta dùng cách cast an toàn sau khi đã gỡ torchcodec
     audio_data = batch["audio"]
     
+    # Đọc dữ liệu nhị phân (bytes) thành mảng numpy bằng soundfile
+    audio_bytes = audio_data["bytes"]
+    array, sr = sf.read(io.BytesIO(audio_bytes))
+    
+    # Resample về 16000Hz nếu file gốc khác 16kHz (Bắt buộc cho MMS/VITS)
+    if sr != 16000:
+        array = librosa.resample(y=array, orig_sr=sr, target_sr=16000)
+
     # Chuyển văn bản thành ID
     batch["input_ids"] = tokenizer(batch["transcription"], return_tensors=None).input_ids
     
-    # Lấy mảng waveform (lúc này datasets sẽ dùng soundfile vì torchcodec đã bị xóa)
-    batch["labels"] = audio_data["array"]
+    # Lấy mảng waveform đã được xử lý
+    batch["labels"] = array
+    
     return batch
 
 print("🛠 Đang tiền xử lý dữ liệu...")
-
-# Trước khi map, ép kiểu Audio lần cuối để dùng soundfile backend
-dataset = dataset.cast_column("audio", Audio(sampling_rate=16_000))
-
 dataset = dataset.map(
     prepare_dataset, 
     remove_columns=dataset.column_names, 
-    num_proc=1 # Để num_proc=1 để dễ debug nếu còn lỗi, sau đó mới tăng lên
+    num_proc=1 # Để 1 luồng để RAM không bị quá tải
 )
 
 # 5. Cấu hình Huấn luyện
@@ -63,7 +75,7 @@ training_args = TrainingArguments(
     eval_strategy="no",
     fp16=torch.cuda.is_available(),
     push_to_hub=True, 
-    hub_model_id="phgrouptechs/tts-vie-infore", # Thay đổi username của bạn
+    hub_model_id="phgrouptechs/tts-vie-infore", 
     hub_token=hf_token,
     hub_strategy="every_save",
     report_to="none"
