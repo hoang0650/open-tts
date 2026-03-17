@@ -23,6 +23,8 @@ dataset_id = "doof-ferb/infore1_25hours"
 
 dataset = load_dataset(dataset_id, split="train")
 dataset = dataset.cast_column("audio", Audio(decode=False))
+dataset = dataset.select(range(2000))
+print(f"Số lượng mẫu sau khi cắt: {len(dataset)}")
 
 # 3. Load Model & Tokenizer
 tokenizer = VitsTokenizer.from_pretrained(model_id)
@@ -95,7 +97,9 @@ training_args = TrainingArguments(
     per_device_train_batch_size=2,
     gradient_accumulation_steps=16,
     learning_rate=2e-5,
-    max_steps=10000,
+    max_steps=2000,
+    save_steps=500,                     # Lưu model mỗi 500 bước
+    logging_steps=10,
     fp16=torch.cuda.is_available(),
     push_to_hub=True,
     hub_model_id="phgrouptechs/tts-vie-infore",
