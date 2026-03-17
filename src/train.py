@@ -93,21 +93,21 @@ class TTSDataCollator:
 training_args = TrainingArguments(
     output_dir="./mms-tts-vie-finetuned",
     
-    # 1. Batch size thấp để tránh OOM, tăng tích lũy để giữ chất lượng
-    per_device_train_batch_size=1,      
-    gradient_accumulation_steps=32,     
+    # --- TĂNG TỐC TỐI ĐA ---
+    # Tăng mạnh batch size vật lý để tận dụng 24GB VRAM
+    per_device_train_batch_size=12,      
+    # Giảm accumulation xuống để GPU cập nhật trọng số liên tục hơn
+    gradient_accumulation_steps=2,      
+    # Tổng batch size thực tế: 12 * 2 = 24 (vẫn đảm bảo chất lượng hội tụ)
+
+    # Dùng BF16 và Optimizer bản tối ưu nhất
+    bf16=True,                          
+    optim="adamw_torch_fused",          # Dùng bản fused vì chúng ta sẽ ép kiểu model bên dưới
     
-    # 2. Dùng bf16 nhưng đổi Optimizer về bản ổn định nhất
-    bf16=torch.cuda.is_available(),     
-    optim="adamw_torch",                # Thay đổi từ adamw_torch_fused -> adamw_torch
+    # Tận dụng CPU mạnh để đẩy data
+    dataloader_num_workers=8,           # Tăng từ 2 lên 8 để GPU không phải chờ CPU
     
-    # 3. Tắt checkpointing để tránh lỗi đạo hàm không chảy về được Embeddings
-    gradient_checkpointing=False,       
-    
-    # 4. Tốc độ nạp dữ liệu
-    dataloader_num_workers=2,           
-    
-    # 5. Các thông số khác giữ nguyên
+    # --- THAM SỐ KHÁC ---
     learning_rate=2e-5,
     max_steps=10000,
     logging_steps=10,
