@@ -44,7 +44,7 @@ def prepare_dataset(batch):
     batch["labels"] = array # Waveform
     return batch
 
-dataset = dataset.map(prepare_dataset, remove_columns=dataset.column_names, num_proc=1)
+dataset = dataset.map(prepare_dataset, remove_columns=dataset.column_names, num_proc=4)
 
 # 5. Data Collator và Trainer tùy chỉnh để giải quyết lỗi NotImplementedError
 class VitsTrainer(Trainer):
@@ -111,3 +111,6 @@ trainer = VitsTrainer(
 
 print("🚀 Bắt đầu quá trình Fine-tuning với Custom Trainer...")
 trainer.train()
+# 8. Đẩy bản cuối cùng lên Hub
+print("📤 Đang đẩy model lên Hugging Face Hub...")
+trainer.push_to_hub(commit_message="Training completed!")
