@@ -93,35 +93,28 @@ class TTSDataCollator:
 training_args = TrainingArguments(
     output_dir="./mms-tts-vie-finetuned",
     
-    # --- TỐI ƯU CHO RTX 4090 (24GB VRAM) ---
-    per_device_train_batch_size=12,      
-    gradient_accumulation_steps=4,      
+    # 1. Giảm mạnh Batch Size để tránh OOM
+    per_device_train_batch_size=1,      # Bắt buộc đưa về 1 để kiểm tra mức tối thiểu
+    gradient_accumulation_steps=32,     # Tăng cái này để tổng Batch Size vẫn là 32 (1x32)
     
-    # Sử dụng Bfloat16 cho kiến trúc Ada Lovelace
+    # 2. Bật Gradient Checkpointing (CỰC KỲ QUAN TRỌNG)
+    # Nó giúp tiết kiệm 30-50% VRAM bằng cách không lưu các activation trung gian
+    gradient_checkpointing=True,        
+    
+    # 3. Giữ nguyên các tối ưu cho 4090
     bf16=torch.cuda.is_available(),     
-    
-    # Optimizer được tối ưu hóa cho GPU
     optim="adamw_torch_fused",          
+    dataloader_num_workers=2,           # Giảm xuống 2 cho ổn định
     
-    # Tăng tốc độ nạp dữ liệu (Data Loading)
-    dataloader_num_workers=4,           
-    
-    # --- THAY THẾ group_by_length ---
-    # Nếu group_by_length lỗi, ta bỏ qua nó để ưu tiên chạy ổn định
-    # group_by_length=True, <--- Bỏ dòng này
-    
-    # --- CÁC THAM SỐ CƠ BẢN ---
+    # 4. Các tham số khác
     learning_rate=2e-5,
     max_steps=10000,
-    logging_steps=50,
+    logging_steps=10,                   # Log thường xuyên hơn để theo dõi
     save_steps=1000,
     warmup_steps=500,
-    
-    # --- HUGGING FACE HUB ---
     push_to_hub=True,
     hub_model_id="phgrouptechs/tts-vie-infore",
     hub_token=hf_token,
-    hub_strategy="every_save",
     report_to="none"
 )
 
