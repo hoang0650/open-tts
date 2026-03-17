@@ -1,38 +1,28 @@
-import torch
-import numpy as np
-import soundfile as sf
-from transformers import VitsTokenizer
-# Thay đổi dòng import bị lỗi ở đây:
-from optimum.onnxruntime import ORTModelForAudioSequence 
+from huggingface_hub import HfApi
+import os
 
-model_dir = "/workspace/open-tts/mms-tts-vie-onnx"
+# Cấu hình thông tin
+repo_id = "phgrouptechs/tts-vie-infore"  # Repo của bạn
+local_folder = "/workspace/open-tts/mms-tts-vie-onnx"
+token = os.getenv("HF_TOKEN") # Đảm bảo bạn đã export HF_TOKEN hoặc dán trực tiếp token vào đây
 
-print("🚀 Đang nạp model ONNX để chạy API...")
+api = HfApi()
 
-# 1. Nạp model và tokenizer từ thư mục ONNX
-# Nếu dùng GPU (RTX 4090), hãy thêm provider="CUDAExecutionProvider"
-model = ORTModelForAudioSequence.from_pretrained(
-    model_dir, 
-    provider="CUDAExecutionProvider" if torch.cuda.is_available() else "CPUExecutionProvider"
-)
-tokenizer = VitsTokenizer.from_pretrained(model_dir)
+print(f"🚀 Đang chuẩn bị tải lên repo: {repo_id}...")
 
-def text_to_speech_onnx(text, output_path="output.wav"):
-    # 2. Tiền xử lý văn bản
-    inputs = tokenizer(text, return_tensors="pt")
+try:
+    # Tải toàn bộ thư mục lên một thư mục con tên là 'onnx' trên repo
+    # Hoặc bạn có thể để path_in_repo="" nếu muốn đè thẳng vào root
+    api.upload_folder(
+        folder_path=local_folder,
+        repo_id=repo_id,
+        path_in_repo="onnx", 
+        token=token,
+        commit_message="Add ONNX version for faster inference"
+    )
     
-    # 3. Chạy Inference (Cực nhanh trên ONNX)
-    with torch.no_grad():
-        # ONNX model trả về waveform trực tiếp
-        outputs = model(**inputs)
-    
-    # 4. Lưu file âm thanh (VITS/MMS mặc định sampling_rate là 16000)
-    waveform = outputs.waveform[0]
-    if isinstance(waveform, torch.Tensor):
-        waveform = waveform.cpu().numpy()
-        
-    sf.write(output_path, waveform, 16000)
-    return output_path
+    print(f"\n✅ ĐÃ PUSH THÀNH CÔNG!")
+    print(f"🔗 Xem model tại: https://huggingface.co/{repo_id}/tree/main/onnx")
 
-# Test thử
-# text_to_speech_onnx("Xin chào, tôi là trí tuệ nhân tạo chạy trên nền tảng ô en en ích.")
+except Exception as e:
+    print(f"❌ Lỗi khi push: {e}")

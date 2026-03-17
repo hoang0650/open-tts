@@ -1,42 +1,38 @@
-import os
-import io
 import torch
-import scipy.io.wavfile
-from fastapi import FastAPI
-from fastapi.responses import StreamingResponse
-from optimum.onnxruntime import ORTModelForTextToSpeech
+import numpy as np
+import soundfile as sf
 from transformers import VitsTokenizer
+# Thay đổi dòng import bị lỗi ở đây:
+from optimum.onnxruntime import ORTModelForAudioSequence 
 
-app = FastAPI()
+model_dir = "/workspace/open-tts/mms-tts-vie-onnx"
 
-# Cấu hình Model ID từ HF
-# Lưu ý: Model ID này phải chứa các file .onnx đã export ở bước trên
-MODEL_ID = os.getenv("MODEL_ID", "phgrouptechs/tts-vie-infore")
+print("🚀 Đang nạp model ONNX để chạy API...")
 
-print("🚀 Đang tải ONNX model lên CPU...")
-# Load model ONNX chuyên dụng cho Inference trên CPU
-tokenizer = VitsTokenizer.from_pretrained(MODEL_ID)
-model = ORTModelForTextToSpeech.from_pretrained(MODEL_ID, provider="CPUExecutionProvider")
+# 1. Nạp model và tokenizer từ thư mục ONNX
+# Nếu dùng GPU (RTX 4090), hãy thêm provider="CUDAExecutionProvider"
+model = ORTModelForAudioSequence.from_pretrained(
+    model_dir, 
+    provider="CUDAExecutionProvider" if torch.cuda.is_available() else "CPUExecutionProvider"
+)
+tokenizer = VitsTokenizer.from_pretrained(model_dir)
 
-@app.get("/tts")
-async def tts(text: str):
-    try:
-        inputs = tokenizer(text, return_tensors="pt")
-        
-        # Inference với ONNX Runtime
+def text_to_speech_onnx(text, output_path="output.wav"):
+    # 2. Tiền xử lý văn bản
+    inputs = tokenizer(text, return_tensors="pt")
+    
+    # 3. Chạy Inference (Cực nhanh trên ONNX)
+    with torch.no_grad():
+        # ONNX model trả về waveform trực tiếp
         outputs = model(**inputs)
-        waveform = outputs.waveform[0]
-
-        # Chuyển sang buffer audio
-        out_io = io.BytesIO()
-        sampling_rate = model.config.sampling_rate
-        scipy.io.wavfile.write(out_io, sampling_rate, waveform.cpu().numpy())
-        out_io.seek(0)
+    
+    # 4. Lưu file âm thanh (VITS/MMS mặc định sampling_rate là 16000)
+    waveform = outputs.waveform[0]
+    if isinstance(waveform, torch.Tensor):
+        waveform = waveform.cpu().numpy()
         
-        return StreamingResponse(out_io, media_type="audio/wav")
-    except Exception as e:
-        return {"error": str(e)}
+    sf.write(output_path, waveform, 16000)
+    return output_path
 
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("PORT", 8080)))
+# Test thử
+# text_to_speech_onnx("Xin chào, tôi là trí tuệ nhân tạo chạy trên nền tảng ô en en ích.")
