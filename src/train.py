@@ -93,29 +93,25 @@ class TTSDataCollator:
 training_args = TrainingArguments(
     output_dir="./mms-tts-vie-finetuned",
     
-    # --- TĂNG TỐC TỐI ĐA ---
-    # Tăng mạnh batch size vật lý để tận dụng 24GB VRAM
-    per_device_train_batch_size=12,      
-    # Giảm accumulation xuống để GPU cập nhật trọng số liên tục hơn
-    gradient_accumulation_steps=2,      
-    # Tổng batch size thực tế: 12 * 2 = 24 (vẫn đảm bảo chất lượng hội tụ)
-
-    # Dùng BF16 và Optimizer bản tối ưu nhất
+    # --- CẤU HÌNH TỐI ƯU LẠI ---
+    per_device_train_batch_size=6,      # Giảm từ 12 xuống 6 để tránh OOM
+    gradient_accumulation_steps=4,      # Tăng lên 4 để tổng batch vẫn là 24
+    
+    # Giải phóng VRAM ngay sau mỗi bước tính toán
+    gradient_checkpointing=True,        
+    
+    # Các tối ưu hóa phần cứng
     bf16=True,                          
-    optim="adamw_torch_fused",          # Dùng bản fused vì chúng ta sẽ ép kiểu model bên dưới
+    optim="adamw_torch_fused",          
+    dataloader_num_workers=4,           
     
-    # Tận dụng CPU mạnh để đẩy data
-    dataloader_num_workers=8,           # Tăng từ 2 lên 8 để GPU không phải chờ CPU
-    
-    # --- THAM SỐ KHÁC ---
+    # --- TỐC ĐỘ ---
     learning_rate=2e-5,
     max_steps=10000,
     logging_steps=10,
     save_steps=1000,
-    warmup_steps=500,
     push_to_hub=True,
     hub_model_id="phgrouptechs/tts-vie-infore",
-    hub_token=hf_token,
     report_to="none"
 )
 
